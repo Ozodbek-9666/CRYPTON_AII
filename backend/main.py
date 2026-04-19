@@ -469,6 +469,7 @@ def register():
     return render_template('register.html')
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # 1. POST so'rovi - Foydalanuvchi Email/Parol yozib "Kirish"ni bossa
     if request.method == 'POST':
         data = request.json
         email = data.get('email')
@@ -482,7 +483,6 @@ def login():
         if res.data:
             user = res.data[0]
             
-            # --- BLOKLASHNI TEKSHIRISH (YANGI QISIM) ---
             if user.get('is_blocked') == True:
                 return jsonify({
                     "success": False, 
@@ -490,7 +490,6 @@ def login():
                     "message": "Sizning akkauntingiz bloklandi!",
                     "blocked_at": user.get('blocked_at', 'Nomalum vaqtda')
                 }), 403
-            # ------------------------------------------
             
             user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
             if user_ip and ',' in user_ip: user_ip = user_ip.split(',')[0].strip()
@@ -501,15 +500,23 @@ def login():
             app.permanent_session_lifetime = timedelta(days=7) 
             
             session['logged_in'] = True
-            session['username'] = user.get('username')
             session['user_email'] = user['email']
             session['user_name'] = user.get('username', 'Foydalanuvchi')
             
             return jsonify({"success": True, "redirect": url_for('chat_interface')})
             
         return jsonify({"success": False, "message": "Email yoki parol xato!"}), 401
-        
+
+    # 2. GET so'rovi - Foydalanuvchi login sahifasiga shunchaki kirganda
+    # Bu yerda faqat sahifani ko'rsatamiz. 
+    # Google orqali kirish uchun alohida tugma bo'lishi kerak.
     return render_template('login.html')
+
+# 3. Google tugmasi bosilganda ishlaydigan alohida Route
+@app.route('/login/google')
+def login_google():
+    redirect_uri = os.getenv("REDIRECT_URI", "https://crypton-safe.online/callback")
+    return google.authorize_redirect(redirect_uri)
 
 
 @app.route('/update_session', methods=['POST'])
