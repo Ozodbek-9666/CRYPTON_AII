@@ -12,6 +12,7 @@ from postgrest.exceptions import APIError # Xatoliklarni ushlash uchun
 import secrets
 import string
 import httpx
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # --- 1. ASOSIY APP SOZLAMASI ---
 load_dotenv()
@@ -21,6 +22,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, 
             template_folder=os.path.join(base_dir, '../frontend/templates'), 
             static_folder=os.path.join(base_dir, '../frontend/static'))
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.secret_key = "anonimcrypton@#0091" 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -557,27 +559,32 @@ def profile_page():
 @app.route('/login/google')
 def google_login():
     # Bu funksiya Google Console-dagi '.../callback' manzilini avtomatik yasab beradi
-    redirect_uri = url_for('google_authorize', _external=True)
+    redirect_uri = "https://crypton-safe.online/callback"  # Google Console-dagi Callback URL bilan mos bo'lishi kerak
     return google.authorize_redirect(redirect_uri)
 
 # Google Console-dagi https://crypton-safe.online/callback manziliga moslash uchun:
 @app.route('/callback') 
 def google_authorize():
     try:
+        # 1. Google'dan token olish
         token = google.authorize_access_token()
-        # User ma'lumotlarini olish
-        resp = google.get('https://openidconnect.googleapis.com/v1/userinfo')
-        user_info = resp.json()
-        email = user_info['email']
         
+        # 2. Sening httpx mantiqing orqali user ma'lumotlarini olish
+        # http2=False Supabase va Google bilan barqaror ishlaydi
+        with httpx.Client(http2=False) as client:
+            resp = client.get('https://openidconnect.googleapis.com/v1/userinfo', 
+                              headers={'Authorization': f"Bearer {token['access_token']}"})
+            user_info = resp.json()
+        
+        email = user_info['email']
         email_prefix = email.split('@')[0]
         g_name = email_prefix[:7]
         
-        # 1. Bazadan foydalanuvchini tekshirish
+        # 3. Supabase bilan foydalanuvchini tekshirish
         res = supabase.table("users").select("*").eq("email", email).execute()
         
         if not res.data:
-            # Yangi user uchun parol yaratish
+            # Yangi user uchun secure parol yaratish
             secure_password = generate_complex_password()
             
             supabase.table("users").insert({
@@ -590,10 +597,11 @@ def google_authorize():
             current_username = g_name
             current_password = secure_password
         else:
+            # Mavjud user
             current_username = res.data[0].get('username', g_name)
             current_password = res.data[0].get('password', "O'rnatilmagan")
             
-        # 2. Sessiyani o'rnatish
+        # 4. Sessiyani o'rnatish
         session.permanent = True
         session['logged_in'] = True
         session['user_email'] = email
