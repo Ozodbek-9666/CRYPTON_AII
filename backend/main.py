@@ -513,10 +513,6 @@ def login():
     return render_template('login.html')
 
 # 3. Google tugmasi bosilganda ishlaydigan alohida Route
-@app.route('/login/google')
-def login_google():
-    redirect_uri = os.getenv("REDIRECT_URI", "https://crypton-safe.online/callback")
-    return google.authorize_redirect(redirect_uri)
 
 
 @app.route('/update_session', methods=['POST'])
@@ -560,52 +556,52 @@ def profile_page():
     
 @app.route('/login/google')
 def google_login():
+    # Bu funksiya Google Console-dagi '.../callback' manzilini avtomatik yasab beradi
     redirect_uri = url_for('google_authorize', _external=True)
     return google.authorize_redirect(redirect_uri)
 
-@app.route('/login/google/callback')
+# Google Console-dagi https://crypton-safe.online/callback manziliga moslash uchun:
+@app.route('/callback') 
 def google_authorize():
     try:
         token = google.authorize_access_token()
+        # User ma'lumotlarini olish
         resp = google.get('https://openidconnect.googleapis.com/v1/userinfo')
         user_info = resp.json()
         email = user_info['email']
         
-        # Google'dan kelgan ismni olish (agar ism bo'lmasa emailning boshi)
         email_prefix = email.split('@')[0]
         g_name = email_prefix[:7]
+        
         # 1. Bazadan foydalanuvchini tekshirish
         res = supabase.table("users").select("*").eq("email", email).execute()
         
         if not res.data:
-            # YANGI FOYDALANUVCHI UCHUN "MILITARY GRADE" PAROL YARATAMIZ
+            # Yangi user uchun parol yaratish
             secure_password = generate_complex_password()
             
             supabase.table("users").insert({
                 "username": g_name, 
                 "email": email, 
-                "password": secure_password, # Bo'sh emas, murakkab parol!
+                "password": secure_password,
                 "reg_date": datetime.now().isoformat(),
                 "is_blocked": False
             }).execute()
             current_username = g_name
             current_password = secure_password
         else:
-            # Mavjud foydalanuvchi ma'lumotlarini olish
             current_username = res.data[0].get('username', g_name)
             current_password = res.data[0].get('password', "O'rnatilmagan")
             
-        # 2. SESSİYANI TO'LIQ O'RNATISH
+        # 2. Sessiyani o'rnatish
         session.permanent = True
         session['logged_in'] = True
         session['user_email'] = email
         session['username'] = current_username
         session['user_name'] = current_username
-        # Profil sahifasida ko'rsatish uchun parolni ham vaqtincha sessiyaga yozamiz
         session['user_password'] = current_password 
         
-        print(f"✅ Google Login: {current_username} uchun xavfsiz sessiya ochildi.")
-        
+        print(f"✅ Google Login: {current_username} muvaffaqiyatli kirdi.")
         return redirect(url_for('chat_interface'))
         
     except Exception as e:
