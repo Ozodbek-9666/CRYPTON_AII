@@ -17,7 +17,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import time 
 import openai
 
-
+MODEL_NAME = "deepseek/deepseek-chat"
 
 # Faqat API kalitni o'zini qoldir, qo'shimcha v1beta sozlamalarini olib tashla
 
@@ -47,7 +47,7 @@ class CryptonEngine:
         try:
             # Model nomi: meta-llama/llama-3.1-70b-instruct (Abliterated bo'lsa shuni yozasiz)
             response = self.client.chat.completions.create(
-                model="deepseek/deepseek-chat-turbo-v1.5",
+                model="deepseek/deepseek-chat",
                 messages=[
                     {
                         "role": "system", 
@@ -191,15 +191,22 @@ def hidden_admin_page():
 
 @app.route('/api/get_chats', methods=['GET'])
 def get_chats():
+    # 1. Login kodingga mos ravishda 'user_name' ni olamiz
+    current_user = session.get('user_name')
     
-    current_user = session.get('username')
-    
+    # Debug: Railway loglarida kim so'rov yuborayotganini ko'rib turamiz
+    print(f"--- Chat History Request ---")
+    print(f"User from session: {current_user}")
+
     if not current_user:
+        print("XATO: Sessiya topilmadi yoki foydalanuvchi tizimga kirmagan.")
         return jsonify({"error": "Unauthorized"}), 401
 
     try:
+        # 2. Supabase so'rovi
+        # Muhim: .eq("username", current_user) qismi bazadagi 'username' ustuniga mos kelishi kerak
         res = supabase.table("messages") \
-            .select("chat_id, content, created_at") \
+            .select("chat_id, content, created_at, role") \
             .eq("username", current_user) \
             .eq("role", "user") \
             .order("created_at", desc=True) \
@@ -213,23 +220,33 @@ def get_chats():
         
         for msg in res.data:
             chat_id = msg.get('chat_id')
+            
+            # 3. Chat_id mavjudligini va takrorlanmasligini tekshiramiz
             if chat_id and chat_id not in seen_chats:
                 seen_chats.add(chat_id)
                 
-                clean_content = msg['content'].replace('\n', '').strip()
-                title = clean_content[:25] + "..." if len(clean_content) > 25 else clean_content
+                # Sarlavhani tozalash (bo'sh bo'lsa 'Yangi suhbat' deb nomlaymiz)
+                content = msg.get('content', '')
+                clean_content = content.replace('\n', ' ').strip()
+                
+                if not clean_content:
+                    title = "Yangi suhbat..."
+                else:
+                    title = clean_content[:30] + "..." if len(clean_content) > 30 else clean_content
                 
                 unique_chats.append({
                     "chat_id": chat_id,
                     "title": title,
-                    "date": msg['created_at']
+                    "date": msg.get('created_at')
                 })
 
+        print(f"Muvaffaqiyatli: {len(unique_chats)} ta chat topildi.")
         return jsonify(unique_chats)
 
     except Exception as e:
-        print(f"CRITICAL Sidebar Error: {str(e)}")
-        return jsonify({"error": "Server error"}), 500
+        # Xatoni terminalda to'liq ko'rish uchun
+        print(f"CRITICAL Sidebar Error for user {current_user}: {str(e)}")
+        return jsonify({"error": "Ichki server xatosi"}), 500
 
 @app.route(f'/api/{ADMIN_SECRET_URL}/blacklist')
 def get_blacklist_api():
@@ -650,7 +667,7 @@ def check_if_refused(ai_response):
 
 @app.route('/api/ask', methods=['POST'])
 def ask():
-    current_user = session.get('username') or session.get('user_name')
+    current_user = session.get('user_name') 
     if not session.get('logged_in') or not current_user:
         return jsonify({"response": "Iltimos, avval tizimga kiring."}), 403
 
