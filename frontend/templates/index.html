@@ -431,20 +431,7 @@
     <span id="active-model-display" class="text-[11px] font-bold uppercase tracking-wider">Llama 3</span>
 </button>
         <div id="model-dropdown-menu" class="hidden absolute bottom-full left-0 mb-3 w-52 bg-[#1c1c1f] border border-[#27272a] rounded-2xl shadow-2xl z-50 dropdown-animate p-1.5">
- <button disabled class="flex items-center justify-between w-full p-3 text-[11px] font-bold text-zinc-500 bg-transparent rounded-xl transition uppercase tracking-wide cursor-not-allowed opacity-50 pointer-events-none">
-    Claude 3.5 Sonnet
-    <i class="fa-solid fa-brain opacity-30"></i>
-</button>
 
-<button onclick="selectModel('Llama 3.1', 'llama')" class="flex items-center justify-between w-full p-3 text-[11px] font-bold text-zinc-300 hover:bg-zinc-800 rounded-xl transition uppercase tracking-wide">
-    Llama 3.1 405B
-    <i class="fa-solid fa-bolt opacity-50"></i>
-</button>
-
-<button onclick="selectModel('Mixtral 8x', 'mixtral')" class="flex items-center justify-between w-full p-3 text-[11px] font-bold text-zinc-300 hover:bg-zinc-800 rounded-xl transition uppercase tracking-wide">
-    Mixtral 8x7B
-    <i class="fa-solid fa-code opacity-50"></i>
-</button>
         </div>
     </div>
 </div>
@@ -467,11 +454,7 @@
                 <span class="font-bold text-sm">Modelni almashtirish</span>
                 <button onclick="toggleModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-800 transition"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
-            <div class="p-3 space-y-1" id="model-list">
-                <button onclick="selectModel('GPT-4o Mini')" class="w-full text-left p-3 hover:bg-zinc-800 rounded-xl transition text-sm">GPT-4o Mini (Default)</button>
-                <button onclick="selectModel('Claude 3.5 Sonnet')" class="w-full text-left p-3 hover:bg-zinc-800 rounded-xl transition text-sm">Claude 3.5 Sonnet</button>
-                <button onclick="selectModel('Llama 3.1 405B')" class="w-full text-left p-3 hover:bg-zinc-800 rounded-xl transition text-sm">Llama 3.1 405B</button>
-            </div>
+          
         </div>
     </div>
 
@@ -639,10 +622,7 @@ async function loadFullChat(chatId) {
 
 
 // 1. Sozlamalar va O'zgaruvchilar
-const OPENROUTER_API_KEY = "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";
-let CURRENT_MODEL_ID = "meta-llama/llama-3-70b-instruct";
-let currentModelAlias = "llama"; // Default model sifatida llama (Hermes) turadi
-
+let currentModelAlias = "claude";
 
 const chatWindow = document.getElementById('chat-window');
 const userInput = document.getElementById('user-input');
@@ -786,18 +766,20 @@ async function handleSend() {
     try {
         // 3. Backendga (main.py) so'rov yuboramiz
         // Eslatma: OpenRouter kaliti endi Python qismida xavfsiz saqlanadi
-        const response = await fetch("/api/ask", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                query: userText,
-                model: currentModelAlias, // "llama", "claude" yoki "mixtral"
-                image: currentImgBase64, // Agar rasm bo'lsa
-                chat_id: currentChatId
-            })
-        });
+       // handleSend funksiyasi ichidagi fetch so'rovi qismi:
+const response = await fetch("/api/ask", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        query: userText,
+        model: currentModelAlias, 
+        image: currentImgBase64,       // Base64 string
+        image_type: currentImgMime,    // "image/jpeg" kabi
+        chat_id: currentChatId
+    })
+});
 
       const data = await response.json();
         
