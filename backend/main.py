@@ -17,7 +17,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import time 
 import openai
 
-MODEL_NAME = "deepseek/deepseek-chat"
+MODEL_NAME = "google/gemini-2.0-flash-lite-001:free"
 
 # Faqat API kalitni o'zini qoldir, qo'shimcha v1beta sozlamalarini olib tashla
 
@@ -42,7 +42,7 @@ class CryptonEngine:
     def __init__(self):
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         # Eng barqaror bepul modelni tanlaymiz
-        self.model = os.getenv("MODEL_NAME", "google/gemini-2.0-flash-lite-preview-02-05:free")
+        self.model = os.getenv("MODEL_NAME", "google/gemini-2.0-flash-lite-001:free")
 
     def execute_command(self, user_prompt, image_data=None):
         try:
