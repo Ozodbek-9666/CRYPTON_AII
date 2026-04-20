@@ -6,7 +6,7 @@ from authlib.integrations.flask_client import OAuth
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import requests    
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, url_for, redirect
 from postgrest.exceptions import APIError    
 import secrets
 import string
@@ -16,6 +16,7 @@ import requests
 from werkzeug.middleware.proxy_fix import ProxyFix
 import time 
 import openai
+import requests
 
 MODEL_NAME = "deepseek/deepseek-chat"
 
@@ -42,13 +43,11 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(days=31),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax', 
-    SESSION_COOKIE_SECURE=False, # Lokalda False bo'lishi shart!
+    SESSION_COOKIE_SECURE=True, # Lokalda False bo'lishi shart!
     SESSION_REFRESH_EACH_REQUEST=True # Har bir so'rovda sessiyani yangilash
 )
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '0'
 
-import os
-import requests
-from flask import Flask, redirect, request, session, url_for
 
 # .env dan ma'lumotlarni o'qiymiz
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
@@ -57,10 +56,12 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31) # Sessiya 1 oy saq
 
 @app.route('/login/github')
 def login_github():
-    # Foydalanuvchini GitHub avtorizatsiya sahifasiga yuborish
+    # _external=True va _scheme='https' domeningizni to'g'ri ko'rsatishini ta'minlaydi
+    callback_url = url_for('github_callback', _external=True, _scheme='https')
+    
     github_url = (
         f"https://github.com/login/oauth/authorize?"
-        f"client_id={GITHUB_CLIENT_ID}&scope=user:email"
+        f"client_id={GITHUB_CLIENT_ID}&scope=user:email&redirect_uri={callback_url}"
     )
     return redirect(github_url)
 
