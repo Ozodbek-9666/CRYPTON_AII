@@ -46,7 +46,15 @@ class CryptonEngine:
 
     def execute_command(self, user_prompt, image_data=None):
         try:
-            # To'g'ridan-to'g'ri HTTP so'rovi yuboramiz
+            # Faqat matnli xabarni shakllantiramiz
+            messages = [
+                {"role": "system", "content": "Sen kiberxavfsizlik mutaxassisisan."},
+                {"role": "user", "content": user_prompt}
+            ]
+
+            # AGAR rasm kelsa va model uni qo'llab-quvvatlasa (ixtiyoriy qism)
+            # Hozircha buni o'chirib turgan ma'qul, faqat matnni tekshiramiz
+
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
@@ -55,25 +63,23 @@ class CryptonEngine:
                 },
                 json={
                     "model": self.model,
-                    "messages": [
-                        {"role": "system", "content": "Sen kiberxavfsizlik bo'yicha yordamchi CRYPTON-AI san. Savollarga texnik va aniq javob ber."},
-                        {"role": "user", "content": user_prompt}
-                    ]
+                    "messages": messages,
+                    "temperature": 0.7
                 },
-                timeout=60 # 60 soniya kutamiz
+                timeout=60
             )
             
             if response.status_code == 200:
                 result = response.json()
                 return result['choices'][0]['message']['content']
             else:
-                print(f"❌ OpenRouter xatosi: {response.status_code} - {response.text}")
-                return f"Xato kodi: {response.status_code}"
+                # BU YERDA ANIQ XATONI KO'RAMIZ
+                print(f"❌ API Xatosi: {response.status_code} - {response.text}")
+                return None
 
         except Exception as e:
-            print(f"❌ Aloqa xatosi: {str(e)}")
+            print(f"❌ Ulanishda xato: {str(e)}")
             return None
-
 crypton_ai = CryptonEngine() 
 @app.route('/get_chat_messages/<chat_id>')
 def get_chat_messages(chat_id):
