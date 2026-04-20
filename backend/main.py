@@ -17,7 +17,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import time 
 import openai
 
-import google.generativeai as genai
+
 
 # Faqat API kalitni o'zini qoldir, qo'shimcha v1beta sozlamalarini olib tashla
 
