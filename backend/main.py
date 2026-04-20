@@ -34,6 +34,114 @@ app.secret_key = "anonimcrypton@#0091"
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+
+app.config.update(
+    SESSION_COOKIE_NAME='crypton_session',
+    PERMANENT_SESSION_LIFETIME=timedelta(days=31),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax', 
+    SESSION_COOKIE_SECURE=False, # Lokalda False bo'lishi shart!
+    SESSION_REFRESH_EACH_REQUEST=True # Har bir so'rovda sessiyani yangilash
+)
+
+import os
+import requests
+from flask import Flask, redirect, request, session, url_for
+
+# .env dan ma'lumotlarni o'qiymiz
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31) # Sessiya 1 oy saqlanadi
+
+@app.route('/login/github')
+def login_github():
+    # Foydalanuvchini GitHub avtorizatsiya sahifasiga yuborish
+    github_url = (
+        f"https://github.com/login/oauth/authorize?"
+        f"client_id={GITHUB_CLIENT_ID}&scope=user:email"
+    )
+    return redirect(github_url)
+
+@app.route('/login/github/authorized')
+def github_callback():
+    code = request.args.get('code')
+    if not code:
+        return "Xatolik: Kod kelmadi", 400
+
+    token_response = requests.post(
+        "https://github.com/login/oauth/access_token",
+        headers={"Accept": "application/json"},
+        data={
+            "client_id": GITHUB_CLIENT_ID,
+            "client_secret": GITHUB_CLIENT_SECRET,
+            "code": code,
+        }
+    )
+    access_token = token_response.json().get("access_token")
+
+    user_response = requests.get(
+        "https://api.github.com/user",
+        headers={"Authorization": f"token {access_token}"}
+    )
+    user_data = user_response.json()
+
+    github_id = user_data.get('id')
+    github_username = user_data.get('login')
+    github_email = user_data.get('email')
+    github_avatar = user_data.get('avatar_url')
+
+    if not github_email:
+        emails_response = requests.get(
+            "https://api.github.com/user/emails",
+            headers={"Authorization": f"token {access_token}"}
+        )
+        emails_list = emails_response.json()
+        
+        # Ro'yxatdan asosiy (primary) va tasdiqlangan (verified) emailni qidiramiz
+        for email_item in emails_list:
+            if email_item.get('primary') and email_item.get('verified'):
+                github_email = email_item.get('email')
+                break
+        
+        # Agar hali ham topilmasa, shunchaki birinchi emailni olamiz
+        if not github_email and emails_list:
+            github_email = emails_list[0].get('email')
+            
+            
+    # Supabase UPSERT (Foydalanuvchini bazada saqlash)
+    user_record = {
+        "id": github_id,
+        "username": github_username,
+        "email": github_email,
+        "avatar_url": github_avatar,
+        "last_login": "now()"
+    }
+
+    try:
+        supabase.table("github_users").upsert(user_record).execute()
+        print(f"✅ Supabase: Foydalanuvchi {github_username} saqlandi.")
+    except Exception as e:
+        print(f"❌ Supabase xatosi: {e}")
+
+    # --- SESSYANI TO'G'RI TO'LDIRISH ---
+    session.clear() 
+    session.permanent = True
+    
+    # MUHIM: Kodingdagi boshqa funksiyalar 'user_name' va 'user_email' ni kutyapti
+    session['logged_in'] = True
+    session['user_name'] = github_username  # 'username' emas, 'user_name'
+    session['username'] = github_username   # Ikkala holat uchun ham saqlaymiz
+    session['user_email'] = github_email
+    session['profile_pic'] = github_avatar
+    
+    session.modified = True 
+    print(f"✅ DEBUG: Sessiya yozildi: {session.get('user_name')}")
+
+    return redirect(url_for('chat_interface'))
+
+
 
 class CryptonEngine:
     def __init__(self):
