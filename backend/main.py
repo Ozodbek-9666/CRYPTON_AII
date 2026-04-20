@@ -46,40 +46,44 @@ class CryptonEngine:
 
     def execute_command(self, user_prompt, image_data=None):
         try:
-            # Faqat matnli xabarni shakllantiramiz
-            messages = [
-                {"role": "system", "content": "Sen kiberxavfsizlik mutaxassisisan."},
-                {"role": "user", "content": user_prompt}
-            ]
-
-            # AGAR rasm kelsa va model uni qo'llab-quvvatlasa (ixtiyoriy qism)
-            # Hozircha buni o'chirib turgan ma'qul, faqat matnni tekshiramiz
-
+            # Modelni aniq, tekshirilgan nom bilan yozamiz
+            target_model = "meta-llama/llama-3.1-8b-instruct:free"
+            
             response = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
+                    # Buni qo'shish majburiy (OpenRouter talabi)
+                    "HTTP-Referer": "https://crypton-ai.railway.app", 
+                    "X-Title": "Crypton AI"
                 },
                 json={
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": 0.7
+                    "model": target_model,
+                    "messages": [
+                        {"role": "system", "content": "Sen CRYPTON-AI kiberxavfsizlik yordamchisisan."},
+                        {"role": "user", "content": user_prompt}
+                    ]
                 },
                 timeout=60
             )
+            
+            # Logda nima bo'layotganini ko'rish uchun (faqat debug uchun)
+            print(f"DEBUG: Model: {target_model}, Status: {response.status_code}")
             
             if response.status_code == 200:
                 result = response.json()
                 return result['choices'][0]['message']['content']
             else:
-                # BU YERDA ANIQ XATONI KO'RAMIZ
                 print(f"❌ API Xatosi: {response.status_code} - {response.text}")
                 return None
 
         except Exception as e:
-            print(f"❌ Ulanishda xato: {str(e)}")
+            print(f"❌ Aloqa xatosi: {str(e)}")
             return None
+        
+        
+        
 crypton_ai = CryptonEngine() 
 @app.route('/get_chat_messages/<chat_id>')
 def get_chat_messages(chat_id):
