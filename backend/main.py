@@ -44,7 +44,7 @@ class CryptonEngine:
         # Eng barqaror bepul modelni tanlaymiz
         self.model = os.getenv("MODEL_NAME", "google/gemini-2.0-flash-lite-preview-02-05:free")
 
-    def execute_command(self, user_prompt):
+    def execute_command(self, user_prompt, image_data=None):
         try:
             # To'g'ridan-to'g'ri HTTP so'rovi yuboramiz
             response = requests.post(
