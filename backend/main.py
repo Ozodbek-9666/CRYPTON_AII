@@ -41,6 +41,8 @@ class CryptonEngine:
         self.client = openai.OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=self.api_key,
+            http_client=httpx.Client(http2=False), # Faqat HTTP/1.1
+            timeout=openai.Timeout(60.0, read=50.0, connect=10.0)
         )
 
     def execute_command(self, user_prompt, image_data=None):
